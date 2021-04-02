@@ -54,7 +54,7 @@ function handleParks (request, response) {
 function handleYelp (request, response) {
   let city=request.query.search_query;
   const key = process.env.YELP_API_KEY;
-  let url = `https://api.yelp.com/v3/businesses/search?location=${city}`;
+  let url = `https://api.yelp.com/v3/businesses/search?location=${city}&limit=5&page=${(request.query.page-1)*5}`;
   superagent.get(url)
     .set('Authorization', `Bearer ${key}`)
     .then( data => {
