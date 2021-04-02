@@ -17,6 +17,8 @@ app.get('/location', handleLocation);
 app.get('/weather', handleWeather);
 app.get('/parks', handleParks);
 app.get('/movies', handleMovies);
+app.get('/yelp', handleYelp);
+
 
 // app.use('*', noExist);
 // app.use(errorHandler);
@@ -49,6 +51,32 @@ function handleParks (request, response) {
 
 }
 
+function handleYelp (request, response) {
+  let city=request.query.search_query;
+  const key = process.env.YELP_API_KEY;
+  let url = `https://api.yelp.com/v3/businesses/search?location=${city}`;
+  superagent.get(url)
+    .set('Authorization', `Bearer ${key}`)
+    .then( data => {
+      let resultArr =[];
+      let yelpData = data.body.businesses;
+      yelpData.forEach(element => {
+        let localYelp = new Yelp(element);
+        resultArr.push(localYelp);
+      });
+      response.status(200).json(resultArr);
+    });
+
+}
+
+function Yelp (data) {
+  this.name = data.name;
+  this.image_url = data.image_url;
+  this.price = data.price;
+  this.rating = data.rating;
+  this.url = data.url;
+}
+
 function handleMovies(request, response) {
   let key = process.env.MOVIE_API_KEY;
   let city = request.query.search_query;
@@ -67,7 +95,7 @@ function Movie (result) {
   this.overview = result.overview;
   this.average_votes=result.vote_average;
   this.total_votes=result.vote_count;
-  this.img_url=`https://image.tmdb.org/t/p/w500${result.poster_path}`;
+  this.image_url=`https://image.tmdb.org/t/p/w500${result.poster_path}`;
   this.popularity=result.popularity;
   this.released_on=result.release_date;
 }
@@ -90,21 +118,18 @@ function handleLocation(request, response) {
 
   client.query(SQL, [city]).then(result=> {
     if (result.rowCount>0) {
-      console.log('here from DB', result.rows[0]);
-      response.send(result.rows[0]);
+        response.send(result.rows[0]);
     } else {
       let key = process.env.GEO_API_KEY;
       const url = `https://us1.locationiq.com/v1/search.php?key=${key}&q=${city}&format=json`;
       superagent.get(url).then(res=> {
         const locationData = res.body[0];
         const location = new Location(city, locationData);
-        console.log(location);
         let lat=locationData.lat;
         let lon=locationData.lon;
         const SQL = 'INSERT INTO location (search_query, formatted_query, latitude, longitude) VALUES($1, $2, $3, $4) RETURNING *';
         let values = [city, locationData.display_name, lat, lon];
         client.query(SQL, values).then(result=> {
-          console.log('here from API', location);
           response.send(location);
         });
       }).catch((err)=> {
@@ -129,7 +154,6 @@ function handleWeather(request, response) {
   let key = process.env.WETH_API_KEY;
   let lat = request.query.latitude;
   let lon = request.query.longitude;
-  console.log('lat and lon',lat+' '+lon);
   const url = `https://api.weatherbit.io/v2.0/forecast/daily?lat=${lat}&lon=${lon}&key=${key}&days=8`;
   superagent.get(url).then(res => {
     let data = res.body.data;
